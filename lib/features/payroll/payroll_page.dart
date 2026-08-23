@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/formatters.dart';
 import '../../data/models.dart';
 import '../../data/operational_models.dart';
-import '../../data/operational_repositories.dart';
+import '../../data/payroll_repository.dart';
 import '../../data/repositories.dart';
 import '../../services/payroll_pdf_service.dart';
 
@@ -28,7 +28,7 @@ class _PayrollPageState extends State<PayrollPage> {
   }
 
   void _reload() {
-    _periods = PayrollRepository().listPeriods(widget.company.id);
+    _periods = PayrollRepositoryV2().listPeriods(widget.company.id);
   }
 
   Future<void> _generate() async {
@@ -40,7 +40,7 @@ class _PayrollPageState extends State<PayrollPage> {
         _message('Agrega al menos un empleado con contrato.');
         return;
       }
-      final period = await PayrollRepository().generate(
+      final period = await PayrollRepositoryV2().generate(
         company: widget.company,
         employees: active,
         year: _year,
@@ -94,7 +94,7 @@ class _PayrollPageState extends State<PayrollPage> {
                 ),
                 const SizedBox(height: 7),
                 Text(
-                  'Consolida sueldo, horas adicionales, IESS y genera roles de pago.',
+                  'Sueldo proporcional, horas extra, décimos mensualizados, fondo de reserva, IESS y roles PDF.',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.82), height: 1.35),
                 ),
               ],
@@ -153,7 +153,7 @@ class _PayrollPageState extends State<PayrollPage> {
                 return const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()));
               }
               if (snapshot.hasError) return _error(snapshot.error.toString());
-              final periods = snapshot.data ?? const [];
+              final periods = snapshot.data ?? const <PayrollPeriodRecord>[];
               if (periods.isEmpty) {
                 return const Card(
                   child: Padding(
@@ -204,11 +204,11 @@ class PayrollDetailPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(_capitalize(period.label))),
       body: FutureBuilder<List<PayrollEntryRecord>>(
-        future: PayrollRepository().listEntries(period.id),
+        future: PayrollRepositoryV2().listEntries(period.id),
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
           if (snapshot.hasError) return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Error: ${snapshot.error}')));
-          final entries = snapshot.data ?? const [];
+          final entries = snapshot.data ?? const <PayrollEntryRecord>[];
           final gross = entries.fold<double>(0, (sum, item) => sum + item.grossIncome);
           final net = entries.fold<double>(0, (sum, item) => sum + item.netPay);
           final iess = entries.fold<double>(0, (sum, item) => sum + item.employeeIess);
@@ -217,7 +217,7 @@ class PayrollDetailPage extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: _Metric(label: 'Bruto', value: money(gross))),
+                  Expanded(child: _Metric(label: 'Ingresos', value: money(gross))),
                   const SizedBox(width: 10),
                   Expanded(child: _Metric(label: 'Neto', value: money(net))),
                 ],
@@ -226,6 +226,8 @@ class PayrollDetailPage extends StatelessWidget {
               _Metric(label: 'IESS personal', value: money(iess), wide: true),
               const SizedBox(height: 24),
               Text('Roles de pago', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 6),
+              Text('Toca un empleado para compartir su rol en PDF.', style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 10),
               if (entries.isEmpty)
                 const Card(child: Padding(padding: EdgeInsets.all(20), child: Text('Este periodo no tiene empleados calculados.')))
@@ -236,7 +238,7 @@ class PayrollDetailPage extends StatelessWidget {
                         child: ListTile(
                           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
                           title: Text(entry.employeeName, style: const TextStyle(fontWeight: FontWeight.w900)),
-                          subtitle: Text('${entry.position} · Bruto ${money(entry.grossIncome)}'),
+                          subtitle: Text('${entry.position} · Ingresos ${money(entry.grossIncome)}'),
                           trailing: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.end,
