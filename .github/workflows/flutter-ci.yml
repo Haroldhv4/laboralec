@@ -13,6 +13,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -34,3 +40,11 @@ jobs:
           flutter build apk --debug
           --dart-define=SUPABASE_URL=https://example.supabase.co
           --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Laboral-EC-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
