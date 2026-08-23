@@ -5,7 +5,7 @@ import '../../data/models.dart';
 import '../../data/operational_models.dart';
 import '../../data/operational_repositories.dart';
 import '../../data/repositories.dart';
-import '../calculators/settlement_calculator_page.dart';
+import 'employee_settlement_page.dart';
 
 class SettlementsPage extends StatefulWidget {
   const SettlementsPage({super.key, required this.company});
@@ -71,7 +71,7 @@ class _SettlementsPageState extends State<SettlementsPage> {
     if (selected == null || !mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => SettlementCalculatorPage(record: selected, companyRegion: widget.company.region),
+        builder: (_) => EmployeeSettlementPage(record: selected, companyRegion: widget.company.region),
       ),
     );
     if (mounted) setState(_reload);
@@ -101,7 +101,7 @@ class _SettlementsPageState extends State<SettlementsPage> {
                 const SizedBox(height: 18),
                 Text('Finiquitos', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 7),
-                Text('Calcula con los datos del contrato y conserva el historial de cada liquidación.', style: TextStyle(color: Colors.white.withValues(alpha: 0.82), height: 1.35)),
+                Text('Calcula con contrato, modalidad de décimos y vacaciones registradas; luego conserva el historial.', style: TextStyle(color: Colors.white.withValues(alpha: 0.82), height: 1.35)),
                 const SizedBox(height: 18),
                 FilledButton.icon(
                   style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: scheme.primary),
