@@ -1,0 +1,7 @@
+# Copia este archivo como android/key.properties y completa tus datos.
+# No subas key.properties ni el archivo .jks a GitHub.
+
+storePassword=CAMBIA_ESTA_CLAVE
+keyPassword=CAMBIA_ESTA_CLAVE
+keyAlias=laboralec
+storeFile=../upload-keystore.jks
