@@ -76,8 +76,10 @@ class SettlementBreakdown {
 
   double get benefitsTotal =>
       thirteenth + fourteenth + vacations + reserveFund;
+
   double get indemnificationsTotal =>
       desahucio + dismissalIndemnification;
+
   double get total =>
       pendingSalary +
       benefitsTotal +
@@ -135,7 +137,8 @@ class CalculationEngine {
 
   double thirteenthMonthly(double eligibleIncome) => eligibleIncome / 12;
 
-  double fourteenthMonthly({double? sbu}) => (sbu ?? config.sbu) / 12;
+  double fourteenthMonthly({double? sbu}) =>
+      (sbu ?? config.sbu) / 12;
 
   double vacationMonthlyProvision(double monthlySalary) =>
       monthlySalary / 24;
@@ -144,12 +147,12 @@ class CalculationEngine {
       taxableIncome * config.reserveFundRate;
 
   double vacationValue(double monthlySalary, double pendingDays) =>
-      (monthlySalary / 30) * math.max(0, pendingDays);
+      (monthlySalary / 30) * math.max(0.0, pendingDays);
 
   double sbuForYear(int year) => switch (year) {
-        2024 => 460,
-        2025 => 470,
-        2026 => 482,
+        2024 => 460.0,
+        2025 => 470.0,
+        2026 => 482.0,
         _ => config.sbu,
       };
 
@@ -189,13 +192,8 @@ class CalculationEngine {
   int dismissalYears(DateTime start, DateTime end) {
     if (end.isBefore(start)) return 0;
     final completed = completedYears(start, end);
-    final anniversary = DateTime(
-      start.year + completed,
-      start.month,
-      start.day,
-    );
-    final hasFraction = end.isAfter(anniversary);
-    return completed + (hasFraction ? 1 : 0);
+    final anniversary = _anniversary(start, completed);
+    return completed + (end.isAfter(anniversary) ? 1 : 0);
   }
 
   double desahucio(
@@ -252,21 +250,13 @@ class CalculationEngine {
     DateTime end, {
     double alreadyTakenInCurrentPeriod = 0,
   }) {
-    if (end.isBefore(start)) return 0;
+    if (end.isBefore(start)) return 0.0;
 
     final completed = completedYears(start, end);
-    var periodStart = DateTime(
-      start.year + completed,
-      start.month,
-      start.day,
-    );
+    var periodStart = _anniversary(start, completed);
 
     if (_sameDate(periodStart, end) && completed > 0) {
-      periodStart = DateTime(
-        start.year + completed - 1,
-        start.month,
-        start.day,
-      );
+      periodStart = _anniversary(start, completed - 1);
     }
 
     if (periodStart.isBefore(start)) periodStart = start;
@@ -274,14 +264,16 @@ class CalculationEngine {
     final daysInPeriod =
         commercialDaysInclusive(periodStart, end).clamp(0, 360).toInt();
 
-    final completedAtPeriodStart =
-        completedYears(start, periodStart);
+    final completedAtPeriodStart = completedYears(start, periodStart);
     final additionalDays =
         math.min(math.max(completedAtPeriodStart - 5, 0), 15);
     final annualEntitlement = 15.0 + additionalDays;
-
     final accrued = annualEntitlement * daysInPeriod / 360;
-    return math.max(0, accrued - alreadyTakenInCurrentPeriod);
+
+    return math.max(
+      0.0,
+      accrued - alreadyTakenInCurrentPeriod,
+    );
   }
 
   SettlementEstimate automaticSettlement({
@@ -362,23 +354,19 @@ class CalculationEngine {
     final autoVacationDays = estimatedVacationDays(
       startDate,
       endDate,
-      alreadyTakenInCurrentPeriod:
-          vacationDaysTakenInCurrentPeriod,
+      alreadyTakenInCurrentPeriod: vacationDaysTakenInCurrentPeriod,
     );
-    final vacationDays =
-        math.max(0, vacationDaysPending ?? autoVacationDays);
-    final vacations = vacationValue(
-      remunerationBase,
-      vacationDays,
+    final vacationDays = math.max(
+      0.0,
+      vacationDaysPending ?? autoVacationDays,
     );
+    final vacations = vacationValue(remunerationBase, vacationDays);
 
     final completedService = completedYears(startDate, endDate);
     final reserveEligible = completedService >= 1;
     final reserveFundPending =
         includeCurrentReserveFund && reserveEligible
-        ? reserveFund(
-            remunerationBase * pendingSalaryDays / 30,
-          )
+        ? reserveFund(remunerationBase * pendingSalaryDays / 30)
         : 0.0;
 
     var desahucioAmount = 0.0;
@@ -403,7 +391,7 @@ class CalculationEngine {
 
     if (vacationDaysPending == null) {
       notes.add(
-        'Vacaciones estimadas suponiendo que no existen días pendientes de periodos anteriores. Ajusta los días si el trabajador ya tomó vacaciones o acumula saldos.',
+        'Vacaciones estimadas para el periodo actual. Si existen vacaciones acumuladas o ya gozadas, ajusta los días manualmente.',
       );
     }
 
@@ -432,8 +420,8 @@ class CalculationEngine {
         reserveFund: reserveFundPending,
         desahucio: desahucioAmount,
         dismissalIndemnification: dismissal,
-        otherIncome: math.max(0, otherIncome),
-        deductions: math.max(0, deductions),
+        otherIncome: math.max(0.0, otherIncome),
+        deductions: math.max(0.0, deductions),
       ),
       pendingSalaryDays: pendingSalaryDays,
       thirteenthDays: thirteenthDays,
@@ -492,8 +480,13 @@ class CalculationEngine {
     );
   }
 
-  DateTime _later(DateTime a, DateTime b) =>
-      a.isAfter(b) ? a : b;
+  DateTime _later(DateTime a, DateTime b) => a.isAfter(b) ? a : b;
+
+  DateTime _anniversary(DateTime start, int yearsAfterStart) {
+    final year = start.year + yearsAfterStart;
+    final lastDay = DateTime(year, start.month + 1, 0).day;
+    return DateTime(year, start.month, math.min(start.day, lastDay));
+  }
 
   bool _sameDate(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
