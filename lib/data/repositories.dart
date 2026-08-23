@@ -168,10 +168,42 @@ class EmployeeRepository {
         'effective_from': _date(startDate),
       });
 
+      final recentLimit = DateTime.now().subtract(const Duration(days: 30));
+      if (!startDate.isBefore(recentLimit)) {
+        await _tryReminder(
+          companyId: companyId,
+          employeeId: employee.id,
+          type: 'iess_entry_notice',
+          title: 'Registrar aviso de entrada IESS · ${employee.fullName}',
+          dueDate: startDate.add(const Duration(days: 15)),
+        );
+      }
+
       return EmployeeRecord(employee: employee, contract: contract);
     } catch (_) {
       await _client.from('employees').delete().eq('id', employee.id);
       rethrow;
+    }
+  }
+
+  Future<void> _tryReminder({
+    required String companyId,
+    required String employeeId,
+    required String type,
+    required String title,
+    required DateTime dueDate,
+  }) async {
+    try {
+      await _client.from('reminders').insert({
+        'company_id': companyId,
+        'employee_id': employeeId,
+        'reminder_type': type,
+        'title': title,
+        'due_date': _date(dueDate),
+        'status': 'pending',
+      });
+    } on PostgrestException catch (error) {
+      if (error.code != '42P01') rethrow;
     }
   }
 
@@ -214,42 +246,110 @@ class SettlementRepository {
         .single();
 
     try {
-      await _client.from('settlements').insert({
-        'company_id': record.employee.companyId,
-        'termination_id': termination['id'],
-        'employee_id': record.employee.id,
-        'contract_id': contract.id,
-        'calculation_date': _date(DateTime.now()),
-        'income_total': breakdown.pendingSalary + breakdown.otherIncome,
-        'benefits_total': breakdown.benefitsTotal,
-        'indemnifications_total': breakdown.indemnificationsTotal,
-        'deductions_total': breakdown.deductions,
-        'total': breakdown.total,
-        'status': 'calculated',
-        'legal_engine_version': '2026.1',
-        'warnings': <String>[
-          'Resultado estimado. Verifica valores pendientes y la causal antes de finalizar.',
-        ],
-        'calculation_snapshot': {
-          'salary': contract.monthlySalary,
-          'start_date': _date(contract.startDate),
-          'termination_date': _date(terminationDate),
-          'cause': cause.name,
-          'pending_salary': breakdown.pendingSalary,
-          'thirteenth': breakdown.thirteenth,
-          'fourteenth': breakdown.fourteenth,
-          'vacations': breakdown.vacations,
-          'reserve_fund': breakdown.reserveFund,
-          'desahucio': breakdown.desahucio,
-          'dismissal': breakdown.dismissalIndemnification,
-          'other_income': breakdown.otherIncome,
-          'deductions': breakdown.deductions,
-          'total': breakdown.total,
-        },
-      });
+      final settlement = await _client
+          .from('settlements')
+          .insert({
+            'company_id': record.employee.companyId,
+            'termination_id': termination['id'],
+            'employee_id': record.employee.id,
+            'contract_id': contract.id,
+            'calculation_date': _date(DateTime.now()),
+            'income_total': breakdown.pendingSalary + breakdown.otherIncome,
+            'benefits_total': breakdown.benefitsTotal,
+            'indemnifications_total': breakdown.indemnificationsTotal,
+            'deductions_total': breakdown.deductions,
+            'total': breakdown.total,
+            'status': 'calculated',
+            'legal_engine_version': '2026.2',
+            'warnings': <String>[
+              'Resultado estimado. Verifica remuneraciones variables, saldos históricos y la causal antes de finalizar.',
+            ],
+            'calculation_snapshot': {
+              'salary': contract.monthlySalary,
+              'start_date': _date(contract.startDate),
+              'termination_date': _date(terminationDate),
+              'cause': cause.name,
+              'pending_salary': breakdown.pendingSalary,
+              'thirteenth': breakdown.thirteenth,
+              'fourteenth': breakdown.fourteenth,
+              'vacations': breakdown.vacations,
+              'reserve_fund': breakdown.reserveFund,
+              'desahucio': breakdown.desahucio,
+              'dismissal': breakdown.dismissalIndemnification,
+              'other_income': breakdown.otherIncome,
+              'deductions': breakdown.deductions,
+              'total': breakdown.total,
+            },
+          })
+          .select()
+          .single();
+
+      final settlementId = settlement['id'].toString();
+      final items = <Map<String, dynamic>>[];
+      void addItem(String code, String label, String category, double amount) {
+        if (amount == 0) return;
+        items.add({
+          'settlement_id': settlementId,
+          'company_id': record.employee.companyId,
+          'code': code,
+          'label': label,
+          'category': category,
+          'amount': amount,
+        });
+      }
+
+      addItem('pending_salary', 'Remuneración pendiente', 'income', breakdown.pendingSalary);
+      addItem('thirteenth', 'Décimo tercero', 'benefit', breakdown.thirteenth);
+      addItem('fourteenth', 'Décimo cuarto', 'benefit', breakdown.fourteenth);
+      addItem('vacations', 'Vacaciones', 'benefit', breakdown.vacations);
+      addItem('reserve_fund', 'Fondo de reserva', 'benefit', breakdown.reserveFund);
+      addItem('desahucio', 'Bonificación por desahucio', 'indemnification', breakdown.desahucio);
+      addItem('dismissal', 'Indemnización por despido', 'indemnification', breakdown.dismissalIndemnification);
+      addItem('other_income', 'Otros ingresos', 'income', breakdown.otherIncome);
+      addItem('deductions', 'Descuentos', 'deduction', breakdown.deductions);
+
+      if (items.isNotEmpty) {
+        await _client.from('settlement_items').insert(items);
+      }
+
+      await _tryReminder(
+        companyId: record.employee.companyId,
+        employeeId: record.employee.id,
+        type: 'iess_exit_notice',
+        title: 'Registrar aviso de salida IESS · ${record.employee.fullName}',
+        dueDate: terminationDate.add(const Duration(days: 3)),
+      );
+      await _tryReminder(
+        companyId: record.employee.companyId,
+        employeeId: record.employee.id,
+        type: 'sut_settlement',
+        title: 'Registrar acta de finiquito en SUT · ${record.employee.fullName}',
+        dueDate: terminationDate.add(const Duration(days: 15)),
+      );
     } catch (_) {
       await _client.from('terminations').delete().eq('id', termination['id']);
       rethrow;
+    }
+  }
+
+  Future<void> _tryReminder({
+    required String companyId,
+    required String employeeId,
+    required String type,
+    required String title,
+    required DateTime dueDate,
+  }) async {
+    try {
+      await _client.from('reminders').insert({
+        'company_id': companyId,
+        'employee_id': employeeId,
+        'reminder_type': type,
+        'title': title,
+        'due_date': _date(dueDate),
+        'status': 'pending',
+      });
+    } on PostgrestException catch (error) {
+      if (error.code != '42P01') rethrow;
     }
   }
 
