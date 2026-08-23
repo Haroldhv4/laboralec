@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  analyze-and-test:
+  analyze-test-build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,3 +28,9 @@ jobs:
 
       - name: Test
         run: flutter test
+
+      - name: Build Android debug APK
+        run: >-
+          flutter build apk --debug
+          --dart-define=SUPABASE_URL=https://example.supabase.co
+          --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_placeholder
