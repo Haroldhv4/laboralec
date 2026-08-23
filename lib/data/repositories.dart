@@ -22,6 +22,7 @@ class CompanyRepository {
     String? ruc,
     String? province,
     String? city,
+    String? region,
   }) async {
     final user = _client.auth.currentUser;
     if (user == null) throw StateError('No existe una sesión activa.');
@@ -35,6 +36,7 @@ class CompanyRepository {
           'ruc': _nullIfEmpty(ruc),
           'province': _nullIfEmpty(province),
           'city': _nullIfEmpty(city),
+          'region': _nullIfEmpty(region),
         })
         .select()
         .single();
