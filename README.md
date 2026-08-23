@@ -1,28 +1,36 @@
 # Laboral EC
 
-Aplicación Flutter para pequeños empleadores de Ecuador. Centraliza empleados, contratos, estimaciones de nómina, calculadoras laborales y finiquitos sobre Supabase.
+Aplicación Flutter para pequeños empleadores de Ecuador. Centraliza empleados, contratos, novedades laborales, nómina, obligaciones, calculadoras y finiquitos sobre Supabase.
 
 ## Estado actual
 
-El MVP incluye:
+Laboral EC ya cubre el núcleo funcional del MVP:
 
 - Registro e inicio de sesión con Supabase Auth.
-- Acceso a calculadoras sin necesidad de crear una cuenta.
+- Calculadoras públicas sin necesidad de crear una cuenta.
+- Menú lateral con perfil, navegación y cierre de sesión.
 - Múltiples empresas por usuario y aislamiento con RLS.
-- Registro de región laboral de la empresa para cálculos del décimo cuarto.
-- Registro de empleados y contrato inicial.
-- Historial salarial en Supabase.
-- Dashboard por empresa.
-- Vista previa de nómina mensual.
-- Calculadoras independientes de IESS, décimo tercero, décimo cuarto, vacaciones, horas suplementarias/extraordinarias y costo de contratación.
-- Calculadora pública de finiquito a partir de fechas, remuneración, causal y región.
-- Finiquito simplificado para empleados registrados: reutiliza sueldo, fecha de ingreso y modalidad de décimos del contrato.
-- Cálculo automático de sueldo pendiente, proporcionales de décimos, estimación de vacaciones, desahucio e indemnización por despido cuando corresponde.
-- Guardado de borradores de finiquito con snapshot del cálculo.
-- Esquema versionado para nómina, horas extra, vacaciones, finiquitos y recordatorios.
-- Pruebas unitarias del motor laboral.
+- Región laboral por empresa (`costa_insular` / `sierra_amazonia`).
+- Empleados, contrato inicial, sueldo, modalidad de décimos y fondo de reserva.
+- Historial salarial.
+- Dashboard operativo por empresa.
+- Registro de horas suplementarias, extraordinarias y recargo nocturno por empleado.
+- Registro de vacaciones tomadas por rango de fechas.
+- Saldo estimado de vacaciones reutilizado en el finiquito.
+- Nómina mensual persistente con sueldo proporcional, horas adicionales, IESS, décimos mensualizados, fondo de reserva y provisiones.
+- Historial de periodos de nómina.
+- Roles de pago en PDF para compartir desde el teléfono.
+- Calculadoras independientes de IESS, décimo tercero, décimo cuarto, vacaciones, horas extra y costo de contratación.
+- Calculadora pública de finiquito por fechas, remuneración, causal y región.
+- Finiquito simplificado para empleados registrados reutilizando contrato, modalidad de décimos, región y vacaciones registradas.
+- Cálculo automático de sueldo pendiente, décimos proporcionales, vacaciones, desahucio e indemnización cuando corresponda.
+- Historial de finiquitos y desglose persistido por rubros.
+- Obligaciones y recordatorios del empleador.
+- Recordatorios automáticos al registrar empleados recientes y al guardar finiquitos.
+- Motor laboral separado de la interfaz y cubierto por pruebas.
+- CI en GitHub con `flutter analyze`, `flutter test` y compilación APK debug.
 
-> Los cálculos son orientativos. Las vacaciones efectivamente pendientes, remuneraciones variables, contratos colectivos, regímenes especiales y particularidades jurídicas requieren datos o revisión adicional antes de realizar pagos o trámites oficiales.
+> Los cálculos son orientativos. Remuneraciones variables, saldos históricos no registrados, contratos colectivos, regímenes especiales y particularidades jurídicas requieren validación adicional antes de realizar pagos o trámites oficiales.
 
 ## Requisitos
 
@@ -35,6 +43,9 @@ El MVP incluye:
 
 ```powershell
 flutter pub get
+flutter analyze
+flutter test
+
 flutter run -d TU_DEVICE_ID `
   --dart-define=SUPABASE_URL=https://TU_PROJECT_REF.supabase.co `
   --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_TU_CLAVE
@@ -44,9 +55,9 @@ Nunca agregues una `service_role` o secret key a la aplicación móvil.
 
 ## Base de datos
 
-Las migraciones están en `supabase/migrations/`.
+Las migraciones están versionadas en `supabase/migrations/`.
 
-El frontend espera las tablas base:
+Tablas principales:
 
 - `profiles`
 - `companies`
@@ -55,9 +66,6 @@ El frontend espera las tablas base:
 - `salary_history`
 - `legal_sources`
 - `legal_parameters`
-
-Y la migración del MVP agrega/normaliza:
-
 - `payroll_periods`
 - `payroll_entries`
 - `payroll_items`
@@ -68,14 +76,13 @@ Y la migración del MVP agrega/normaliza:
 - `settlement_items`
 - `reminders`
 
-La región de `companies` usa `costa_insular` o `sierra_amazonia`.
+Para el bloque operativo final aplica también:
 
-## Pruebas
-
-```powershell
-flutter analyze
-flutter test
+```text
+supabase/migrations/20260823040000_operational_completion.sql
 ```
+
+Esta migración es idempotente y asegura `reminders`, RLS e índices usados por los nuevos flujos.
 
 ## Estructura
 
@@ -85,12 +92,22 @@ lib/
 ├── core/
 ├── data/
 ├── domain/
+├── services/
+├── widgets/
 └── features/
     ├── auth/
     ├── calculators/
     ├── company/
     ├── employees/
-    └── home/
+    ├── home/
+    ├── obligations/
+    ├── payroll/
+    ├── profile/
+    └── settlements/
 ```
 
-El motor laboral se mantiene separado de las pantallas para poder versionar reglas y reutilizarlo en Android, iOS y una futura versión web.
+## Antes de publicar
+
+El núcleo del producto ya es utilizable como MVP. Antes de una publicación comercial todavía corresponde una fase de release: validación legal/contable de casos de prueba, recuperación y eliminación de cuenta, política de privacidad y términos, analítica/crash reporting si se desea, pruebas en varios tamaños de pantalla, icono/splash/branding final y preparación de Play Store.
+
+El motor laboral se mantiene separado de las pantallas para versionar reglas y reutilizarlo en Android, iOS y una futura versión web.
