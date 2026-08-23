@@ -295,9 +295,9 @@ class _FourteenthCalculatorPageState extends State<FourteenthCalculatorPage> {
             prefixIcon: Icon(Icons.date_range_outlined),
           ),
           items: const [
-            DropdownMenuItem(value: 2024, child: Text('2024 · SBU $460')),
-            DropdownMenuItem(value: 2025, child: Text('2025 · SBU $470')),
-            DropdownMenuItem(value: 2026, child: Text('2026 · SBU $482')),
+            DropdownMenuItem(value: 2024, child: Text('2024 · SBU \$460')),
+            DropdownMenuItem(value: 2025, child: Text('2025 · SBU \$470')),
+            DropdownMenuItem(value: 2026, child: Text('2026 · SBU \$482')),
           ],
           onChanged: (value) => setState(() => _year = value ?? 2026),
         ),
