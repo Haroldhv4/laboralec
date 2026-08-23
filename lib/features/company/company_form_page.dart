@@ -17,6 +17,7 @@ class _CompanyFormPageState extends State<CompanyFormPage> {
   final _ruc = TextEditingController();
   final _province = TextEditingController();
   final _city = TextEditingController();
+  String _region = 'costa_insular';
   bool _loading = false;
 
   @override
@@ -39,6 +40,7 @@ class _CompanyFormPageState extends State<CompanyFormPage> {
         ruc: _ruc.text,
         province: _province.text,
         city: _city.text,
+        region: _region,
       );
       if (mounted) Navigator.pop<Company>(context, company);
     } catch (error) {
@@ -54,22 +56,65 @@ class _CompanyFormPageState extends State<CompanyFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Nueva empresa')),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
           children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(17),
+                    ),
+                    child: const Icon(Icons.apartment_rounded, color: Colors.white),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Configura tu empresa',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'Estos datos nos permiten reutilizar información en nómina y finiquitos.',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.78),
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
             Text(
               'Datos básicos',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 8),
-            const Text('Podrás completar o corregir estos datos más adelante.'),
-            const SizedBox(height: 24),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _legalName,
               textCapitalization: TextCapitalization.words,
@@ -81,7 +126,7 @@ class _CompanyFormPageState extends State<CompanyFormPage> {
                   ? 'Este campo es obligatorio'
                   : null,
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _tradeName,
               textCapitalization: TextCapitalization.words,
@@ -90,7 +135,7 @@ class _CompanyFormPageState extends State<CompanyFormPage> {
                 prefixIcon: Icon(Icons.storefront_outlined),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _ruc,
               keyboardType: TextInputType.number,
@@ -99,7 +144,35 @@ class _CompanyFormPageState extends State<CompanyFormPage> {
                 prefixIcon: Icon(Icons.badge_outlined),
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _region,
+              decoration: const InputDecoration(
+                labelText: 'Región laboral',
+                prefixIcon: Icon(Icons.location_on_outlined),
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: 'costa_insular',
+                  child: Text('Costa / Insular'),
+                ),
+                DropdownMenuItem(
+                  value: 'sierra_amazonia',
+                  child: Text('Sierra / Amazonía'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _region = value);
+              },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'La región se utiliza para el período del décimo cuarto.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
@@ -122,7 +195,7 @@ class _CompanyFormPageState extends State<CompanyFormPage> {
             const SizedBox(height: 28),
             FilledButton.icon(
               onPressed: _loading ? null : _save,
-              icon: const Icon(Icons.check),
+              icon: const Icon(Icons.check_rounded),
               label: Text(_loading ? 'Guardando...' : 'Crear empresa'),
             ),
           ],
