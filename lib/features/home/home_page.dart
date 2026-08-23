@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/models.dart';
 import '../../data/repositories.dart';
+import '../../widgets/app_drawer.dart';
 import '../calculators/calculators_page.dart';
 import '../calculators/settlement_calculator_page.dart';
 import '../company/company_dashboard_page.dart';
@@ -24,9 +25,7 @@ class _HomePageState extends State<HomePage> {
     _reload();
   }
 
-  void _reload() {
-    _companies = CompanyRepository().listCompanies();
-  }
+  void _reload() => _companies = CompanyRepository().listCompanies();
 
   Future<void> _refresh() async {
     setState(_reload);
@@ -40,32 +39,48 @@ class _HomePageState extends State<HomePage> {
     if (company != null && mounted) setState(_reload);
   }
 
-  void _open(Widget page) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-  }
+  void _open(Widget page) => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => page),
+      );
 
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final name = user?.userMetadata?['full_name']?.toString().trim() ?? '';
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Laboral EC'),
         actions: [
-          IconButton(
-            tooltip: 'Cerrar sesión',
-            onPressed: () => Supabase.instance.client.auth.signOut(),
-            icon: const Icon(Icons.logout_rounded),
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: CircleAvatar(
+              radius: 17,
+              backgroundColor: scheme.secondaryContainer,
+              child: Text(
+                _initial(name.isEmpty ? user?.email ?? 'U' : name),
+                style: TextStyle(
+                  color: scheme.onSecondaryContainer,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 12,
+                ),
+              ),
+            ),
           ),
-          const SizedBox(width: 6),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createCompany,
+        icon: const Icon(Icons.add_business_rounded),
+        label: const Text('Empresa'),
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
           children: [
             Container(
               padding: const EdgeInsets.all(24),
@@ -79,7 +94,7 @@ class _HomePageState extends State<HomePage> {
                 boxShadow: [
                   BoxShadow(
                     color: scheme.primary.withValues(alpha: 0.14),
-                    blurRadius: 26,
+                    blurRadius: 28,
                     offset: const Offset(0, 12),
                   ),
                 ],
@@ -103,9 +118,9 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 20),
                   Text(
-                    'Tu gestión laboral,\nmás clara.',
+                    name.isEmpty ? 'Tu gestión laboral,\nmás clara.' : 'Hola, ${name.split(' ').first}.\nTodo en orden.',
                     style: theme.textTheme.headlineMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w900,
@@ -114,7 +129,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Calcula, organiza empleados y entiende cuánto debes pagar sin navegar entre varias plataformas.',
+                    'Empleados, nómina, obligaciones y finiquitos desde un solo lugar.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.86),
                       height: 1.45,
@@ -134,23 +149,9 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             const SizedBox(height: 28),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Accesos rápidos',
-                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                ),
-                Text(
-                  user?.email ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+            Text(
+              'Accesos rápidos',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 14),
             Row(
@@ -158,7 +159,7 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: _QuickActionCard(
                     title: 'Finiquito',
-                    subtitle: 'Fechas + sueldo',
+                    subtitle: 'Cálculo automático',
                     icon: Icons.assignment_turned_in_outlined,
                     accent: scheme.secondary,
                     onTap: () => _open(const SettlementCalculatorPage()),
@@ -168,7 +169,7 @@ class _HomePageState extends State<HomePage> {
                 Expanded(
                   child: _QuickActionCard(
                     title: 'Costo empleado',
-                    subtitle: 'Antes de contratar',
+                    subtitle: 'Costo mensual real',
                     icon: Icons.business_center_outlined,
                     accent: scheme.primary,
                     onTap: () => _open(const EmploymentCostCalculatorPage()),
@@ -208,42 +209,9 @@ class _HomePageState extends State<HomePage> {
                     onRetry: () => setState(_reload),
                   );
                 }
-
                 final companies = snapshot.data ?? const <Company>[];
                 if (companies.isEmpty) {
-                  return Card(
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(22),
-                      onTap: _createCompany,
-                      child: Padding(
-                        padding: const EdgeInsets.all(28),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: scheme.secondaryContainer,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Icon(Icons.domain_add_outlined, color: scheme.secondary, size: 30),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Crea tu primera empresa',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Registra empleados una sola vez y deja que Laboral EC reutilice sus datos en nómina y finiquitos.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: scheme.onSurfaceVariant, height: 1.4),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
+                  return _EmptyCompanies(onTap: _createCompany);
                 }
 
                 return Column(
@@ -316,6 +284,8 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  String _initial(String value) => value.trim().isEmpty ? 'U' : value.trim()[0].toUpperCase();
 }
 
 class _QuickActionCard extends StatelessWidget {
@@ -360,10 +330,47 @@ class _QuickActionCard extends StatelessWidget {
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                style: TextStyle(fontSize: 11, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyCompanies extends StatelessWidget {
+  const _EmptyCompanies({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: scheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(20),
                 ),
+                child: Icon(Icons.domain_add_outlined, color: scheme.secondary, size: 30),
+              ),
+              const SizedBox(height: 16),
+              const Text('Crea tu primera empresa', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              Text(
+                'Registra empleados una sola vez y reutiliza sus datos para nómina, vacaciones, horas extra y finiquitos.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: scheme.onSurfaceVariant, height: 1.4),
               ),
             ],
           ),
@@ -375,7 +382,6 @@ class _QuickActionCard extends StatelessWidget {
 
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({required this.message, required this.onRetry});
-
   final String message;
   final VoidCallback onRetry;
 
@@ -390,12 +396,7 @@ class _ErrorCard extends StatelessWidget {
             const SizedBox(height: 12),
             const Text('No pudimos cargar tus empresas', style: TextStyle(fontWeight: FontWeight.w800)),
             const SizedBox(height: 8),
-            Text(
-              message,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-            ),
+            Text(message, maxLines: 3, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
             const SizedBox(height: 14),
             OutlinedButton(onPressed: onRetry, child: const Text('Reintentar')),
           ],
