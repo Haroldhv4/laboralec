@@ -4,10 +4,12 @@ import '../../core/formatters.dart';
 import '../../data/models.dart';
 import '../../data/repositories.dart';
 import '../../domain/calculation_engine.dart';
+import '../calculators/settlement_calculator_page.dart';
 import '../employees/employees_page.dart';
 
 class CompanyDashboardPage extends StatefulWidget {
   const CompanyDashboardPage({super.key, required this.company});
+
   final Company company;
 
   @override
@@ -20,7 +22,11 @@ class _CompanyDashboardPageState extends State<CompanyDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      _OverviewTab(company: widget.company, onOpenEmployees: () => setState(() => _index = 1)),
+      _OverviewTab(
+        company: widget.company,
+        onOpenEmployees: () => setState(() => _index = 1),
+        onOpenSettlement: () => setState(() => _index = 3),
+      ),
       EmployeesPage(company: widget.company),
       _PayrollTab(company: widget.company),
       _SettlementTab(company: widget.company),
@@ -31,8 +37,19 @@ class _CompanyDashboardPageState extends State<CompanyDashboardPage> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.company.displayName, maxLines: 1, overflow: TextOverflow.ellipsis),
-            const Text('Gestión laboral', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400)),
+            Text(
+              widget.company.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              'Gestión laboral',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
@@ -41,10 +58,26 @@ class _CompanyDashboardPageState extends State<CompanyDashboardPage> {
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Resumen'),
-          NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups), label: 'Empleados'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'Nómina'),
-          NavigationDestination(icon: Icon(Icons.assignment_turned_in_outlined), selectedIcon: Icon(Icons.assignment_turned_in), label: 'Finiquito'),
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard_rounded),
+            label: 'Resumen',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            selectedIcon: Icon(Icons.groups_rounded),
+            label: 'Empleados',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long_rounded),
+            label: 'Nómina',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_turned_in_outlined),
+            selectedIcon: Icon(Icons.assignment_turned_in_rounded),
+            label: 'Finiquito',
+          ),
         ],
       ),
     );
@@ -52,76 +85,158 @@ class _CompanyDashboardPageState extends State<CompanyDashboardPage> {
 }
 
 class _OverviewTab extends StatelessWidget {
-  const _OverviewTab({required this.company, required this.onOpenEmployees});
+  const _OverviewTab({
+    required this.company,
+    required this.onOpenEmployees,
+    required this.onOpenSettlement,
+  });
+
   final Company company;
   final VoidCallback onOpenEmployees;
+  final VoidCallback onOpenSettlement;
 
   @override
   Widget build(BuildContext context) {
     final engine = const CalculationEngine();
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return FutureBuilder<List<EmployeeRecord>>(
       future: EmployeeRepository().listEmployeeRecords(company.id),
       builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return _Message(
+            icon: Icons.cloud_off_outlined,
+            title: 'No pudimos cargar el resumen',
+            subtitle: snapshot.error.toString(),
+          );
+        }
+
         final records = snapshot.data ?? const <EmployeeRecord>[];
         final active = records.where((r) => r.contract != null).toList();
-        final salaries = active.fold<double>(0, (sum, r) => sum + r.contract!.monthlySalary);
+        final salaries = active.fold<double>(
+          0,
+          (sum, record) => sum + record.contract!.monthlySalary,
+        );
         final estimatedCost = active.fold<double>(
           0,
-          (sum, r) => sum + engine.employmentCost(r.contract!.monthlySalary, includeReserveFund: true).total,
+          (sum, record) =>
+              sum +
+              engine
+                  .employmentCost(
+                    record.contract!.monthlySalary,
+                    includeReserveFund: true,
+                  )
+                  .total,
         );
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            Text('Resumen', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 6),
-            Text(
-              [
-                if (company.ruc?.isNotEmpty ?? false) 'RUC ${company.ruc}',
-                if (company.city?.isNotEmpty ?? false) company.city!,
-              ].join(' · ').isEmpty
-                  ? 'Información general de tu empresa'
-                  : [
-                      if (company.ruc?.isNotEmpty ?? false) 'RUC ${company.ruc}',
-                      if (company.city?.isNotEmpty ?? false) company.city!,
-                    ].join(' · '),
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 45,
+                        height: 45,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.13),
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        child: const Icon(Icons.apartment_rounded, color: Colors.white),
+                      ),
+                      const Spacer(),
+                      if (company.ruc?.isNotEmpty ?? false)
+                        Text(
+                          'RUC ${company.ruc}',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.72),
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    company.displayName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    company.city?.isNotEmpty ?? false
+                        ? company.city!
+                        : 'Panel de gestión laboral',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.75)),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Row(
               children: [
-                Expanded(child: _MetricCard(label: 'Empleados', value: '${records.length}', icon: Icons.groups_outlined)),
+                Expanded(
+                  child: _MetricCard(
+                    label: 'Empleados',
+                    value: '${records.length}',
+                    icon: Icons.groups_outlined,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Expanded(child: _MetricCard(label: 'Sueldos', value: money(salaries), icon: Icons.payments_outlined)),
+                Expanded(
+                  child: _MetricCard(
+                    label: 'Sueldos',
+                    value: money(salaries),
+                    icon: Icons.payments_outlined,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
-            _MetricCard(label: 'Costo laboral mensual estimado', value: money(estimatedCost), icon: Icons.account_balance_wallet_outlined, wide: true),
-            const SizedBox(height: 20),
+            _MetricCard(
+              label: 'Costo laboral mensual estimado',
+              value: money(estimatedCost),
+              icon: Icons.account_balance_wallet_outlined,
+              wide: true,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Acciones rápidas',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 12),
             Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Acciones rápidas', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-                    const SizedBox(height: 12),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const CircleAvatar(child: Icon(Icons.person_add_alt_1_outlined)),
-                      title: const Text('Administrar empleados', style: TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: const Text('Contratos, sueldo y datos personales'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: onOpenEmployees,
-                    ),
-                    const Divider(),
-                    const ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: CircleAvatar(child: Icon(Icons.notifications_active_outlined)),
-                      title: Text('Obligaciones y recordatorios', style: TextStyle(fontWeight: FontWeight.w700)),
-                      subtitle: Text('Próximamente: IESS, SUT, décimos y fechas límite.'),
-                    ),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  _ActionTile(
+                    icon: Icons.person_add_alt_1_outlined,
+                    title: 'Empleados y contratos',
+                    subtitle: 'Datos personales, sueldo y beneficios',
+                    onTap: onOpenEmployees,
+                  ),
+                  const Divider(),
+                  _ActionTile(
+                    icon: Icons.assignment_turned_in_outlined,
+                    title: 'Calcular un finiquito',
+                    subtitle: 'Selecciona un empleado y la app completa sus datos',
+                    onTap: onOpenSettlement,
+                  ),
+                ],
               ),
             ),
           ],
@@ -131,8 +246,284 @@ class _OverviewTab extends StatelessWidget {
   }
 }
 
+class _PayrollTab extends StatelessWidget {
+  const _PayrollTab({required this.company});
+
+  final Company company;
+
+  @override
+  Widget build(BuildContext context) {
+    final engine = const CalculationEngine();
+    final theme = Theme.of(context);
+
+    return FutureBuilder<List<EmployeeRecord>>(
+      future: EmployeeRepository().listEmployeeRecords(company.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return _Message(
+            icon: Icons.error_outline,
+            title: 'No pudimos preparar la nómina',
+            subtitle: snapshot.error.toString(),
+          );
+        }
+
+        final records = (snapshot.data ?? const <EmployeeRecord>[])
+            .where((record) => record.contract != null)
+            .toList();
+
+        if (records.isEmpty) {
+          return const _Message(
+            icon: Icons.receipt_long_outlined,
+            title: 'Nómina sin empleados',
+            subtitle: 'Agrega empleados con contrato para preparar el cálculo mensual.',
+          );
+        }
+
+        final gross = records.fold<double>(
+          0,
+          (sum, record) => sum + record.contract!.monthlySalary,
+        );
+        final personalIess = records.fold<double>(
+          0,
+          (sum, record) => sum + engine.employeeIess(record.contract!.monthlySalary),
+        );
+        final employerIess = records.fold<double>(
+          0,
+          (sum, record) => sum + engine.employerIess(record.contract!.monthlySalary),
+        );
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
+            Text(
+              'Nómina del mes',
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Vista previa con sueldo base e IESS. Después agregaremos novedades, horas extra y cierre mensual.',
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant, height: 1.4),
+            ),
+            const SizedBox(height: 18),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    _moneyRow('Sueldos', gross),
+                    _moneyRow('IESS personal a descontar', personalIess),
+                    _moneyRow('IESS patronal', employerIess),
+                    const Divider(height: 26),
+                    _moneyRow('Neto base empleados', gross - personalIess, strong: true),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            Text('Empleados', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 10),
+            ...records.map((record) {
+              final salary = record.contract!.monthlySalary;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        CircleAvatar(child: Text(_initials(record.employee.fullName))),
+                        const SizedBox(width: 13),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                record.employee.fullName,
+                                style: const TextStyle(fontWeight: FontWeight.w900),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${record.contract!.position ?? 'Empleado'} · IESS ${money(engine.employeeIess(salary))}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Text(
+                          money(salary - engine.employeeIess(salary)),
+                          style: const TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _moneyRow(String label, double value, {bool strong = false}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Expanded(child: Text(label)),
+            Text(
+              money(value),
+              style: TextStyle(
+                fontWeight: strong ? FontWeight.w900 : FontWeight.w700,
+                fontSize: strong ? 17 : 14,
+              ),
+            ),
+          ],
+        ),
+      );
+}
+
+class _SettlementTab extends StatelessWidget {
+  const _SettlementTab({required this.company});
+
+  final Company company;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return FutureBuilder<List<EmployeeRecord>>(
+      future: EmployeeRepository().listEmployeeRecords(company.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return _Message(
+            icon: Icons.error_outline,
+            title: 'No pudimos cargar los empleados',
+            subtitle: snapshot.error.toString(),
+          );
+        }
+
+        final records = (snapshot.data ?? const <EmployeeRecord>[])
+            .where((record) => record.contract != null)
+            .toList();
+
+        if (records.isEmpty) {
+          return const _Message(
+            icon: Icons.assignment_turned_in_outlined,
+            title: 'Aún no puedes calcular finiquitos',
+            subtitle: 'Registra un empleado con contrato y su información se reutilizará automáticamente.',
+          );
+        }
+
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          children: [
+            Text(
+              'Finiquito',
+              style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Elige un empleado. Su fecha de ingreso, sueldo y modalidad de décimos ya están guardados.',
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(17),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.65),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.auto_awesome_outlined, color: theme.colorScheme.secondary),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Solo tendrás que elegir causal, fecha de terminación y descuentos si existen.',
+                      style: TextStyle(fontWeight: FontWeight.w700, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            ...records.map((record) {
+              final contract = record.contract!;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 11),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => SettlementCalculatorPage(
+                          record: record,
+                          companyRegion: company.region,
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(17),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 24,
+                            child: Text(_initials(record.employee.fullName)),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  record.employee.fullName,
+                                  style: const TextStyle(fontWeight: FontWeight.w900),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${compactDate(contract.startDate)} · ${money(contract.monthlySalary)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_rounded),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value, required this.icon, this.wide = false});
+  const _MetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    this.wide = false,
+  });
+
   final String label;
   final String value;
   final IconData icon;
@@ -149,7 +540,10 @@ class _MetricCard extends StatelessWidget {
             Container(
               width: 44,
               height: 44,
-              decoration: BoxDecoration(color: scheme.primaryContainer, borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Icon(icon, color: scheme.primary),
             ),
             const SizedBox(width: 12),
@@ -157,9 +551,19 @@ class _MetricCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
-                  const SizedBox(height: 3),
-                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+                  ),
                 ],
               ),
             ),
@@ -170,267 +574,78 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-class _PayrollTab extends StatelessWidget {
-  const _PayrollTab({required this.company});
-  final Company company;
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final engine = const CalculationEngine();
-    return FutureBuilder<List<EmployeeRecord>>(
-      future: EmployeeRepository().listEmployeeRecords(company.id),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-        if (snapshot.hasError) return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Error: ${snapshot.error}', textAlign: TextAlign.center)));
-        final records = (snapshot.data ?? const <EmployeeRecord>[]).where((r) => r.contract != null).toList();
-        if (records.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(28), child: Text('Agrega empleados con contrato para preparar la nómina.', textAlign: TextAlign.center)));
-
-        final gross = records.fold<double>(0, (sum, r) => sum + r.contract!.monthlySalary);
-        final personalIess = records.fold<double>(0, (sum, r) => sum + engine.employeeIess(r.contract!.monthlySalary));
-        final employerIess = records.fold<double>(0, (sum, r) => sum + engine.employerIess(r.contract!.monthlySalary));
-
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-          children: [
-            Text('Nómina', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 6),
-            const Text('Vista previa mensual con sueldo base e IESS. Horas extra y novedades se incorporarán al cierre.'),
-            const SizedBox(height: 18),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  children: [
-                    _moneyRow('Sueldos', gross),
-                    _moneyRow('IESS personal a descontar', personalIess),
-                    _moneyRow('IESS patronal', employerIess),
-                    const Divider(height: 26),
-                    _moneyRow('Neto base empleados', gross - personalIess, strong: true),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            const Text('Empleados', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-            const SizedBox(height: 10),
-            ...records.map((record) {
-              final salary = record.contract!.monthlySalary;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Card(
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    title: Text(record.employee.fullName, style: const TextStyle(fontWeight: FontWeight.w800)),
-                    subtitle: Text('${record.contract!.position ?? 'Empleado'} · IESS ${money(engine.employeeIess(salary))}'),
-                    trailing: Text(money(salary - engine.employeeIess(salary)), style: const TextStyle(fontWeight: FontWeight.w900)),
-                  ),
-                ),
-              );
-            }),
-          ],
-        );
-      },
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+      leading: CircleAvatar(child: Icon(icon)),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
     );
   }
-
-  Widget _moneyRow(String label, double value, {bool strong = false}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(children: [Expanded(child: Text(label)), Text(money(value), style: TextStyle(fontWeight: strong ? FontWeight.w900 : FontWeight.w700))]),
-      );
 }
 
-class _SettlementTab extends StatefulWidget {
-  const _SettlementTab({required this.company});
-  final Company company;
+class _Message extends StatelessWidget {
+  const _Message({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
-  @override
-  State<_SettlementTab> createState() => _SettlementTabState();
-}
-
-class _SettlementTabState extends State<_SettlementTab> {
-  final _engine = const CalculationEngine();
-  final _pendingSalary = TextEditingController(text: '0');
-  final _thirteenth = TextEditingController(text: '0');
-  final _fourteenth = TextEditingController(text: '0');
-  final _vacations = TextEditingController(text: '0');
-  final _reserve = TextEditingController(text: '0');
-  final _otherIncome = TextEditingController(text: '0');
-  final _deductions = TextEditingController(text: '0');
-  late Future<List<EmployeeRecord>> _records;
-  String? _employeeId;
-  TerminationCause _cause = TerminationCause.resignation;
-  DateTime _date = DateTime.now();
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _records = EmployeeRepository().listEmployeeRecords(widget.company.id);
-  }
-
-  @override
-  void dispose() {
-    for (final c in [_pendingSalary, _thirteenth, _fourteenth, _vacations, _reserve, _otherIncome, _deductions]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  double _number(TextEditingController c) => double.tryParse(c.text.replaceAll(',', '.')) ?? 0;
-
-  SettlementBreakdown? _breakdown(List<EmployeeRecord> records) {
-    if (_employeeId == null) return null;
-    final record = records.where((r) => r.employee.id == _employeeId).firstOrNull;
-    final contract = record?.contract;
-    if (record == null || contract == null) return null;
-    return _engine.settlement(
-      remunerationBase: contract.monthlySalary,
-      startDate: contract.startDate,
-      endDate: _date,
-      cause: _cause,
-      pendingSalary: _number(_pendingSalary),
-      thirteenth: _number(_thirteenth),
-      fourteenth: _number(_fourteenth),
-      vacations: _number(_vacations),
-      reserveFundPending: _number(_reserve),
-      otherIncome: _number(_otherIncome),
-      deductions: _number(_deductions),
-    );
-  }
-
-  Future<void> _pickDate() async {
-    final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(1980), lastDate: DateTime.now().add(const Duration(days: 365)));
-    if (picked != null) setState(() => _date = picked);
-  }
-
-  Future<void> _save(List<EmployeeRecord> records, SettlementBreakdown breakdown) async {
-    final record = records.where((r) => r.employee.id == _employeeId).firstOrNull;
-    if (record == null) return;
-    setState(() => _saving = true);
-    try {
-      await SettlementRepository().saveDraft(record: record, terminationDate: _date, cause: _cause, breakdown: breakdown);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cálculo guardado como borrador.')));
-    } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No se pudo guardar el borrador: $error')));
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
+  final IconData icon;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<EmployeeRecord>>(
-      future: _records,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-        if (snapshot.hasError) return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text('Error: ${snapshot.error}')));
-        final records = (snapshot.data ?? const <EmployeeRecord>[]).where((r) => r.contract != null).toList();
-        if (records.isEmpty) return const Center(child: Padding(padding: EdgeInsets.all(28), child: Text('Agrega un empleado con contrato para calcular su finiquito.', textAlign: TextAlign.center)));
-
-        final breakdown = _breakdown(records);
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(30),
+        child: Column(
           children: [
-            Text('Finiquito', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900)),
-            const SizedBox(height: 6),
-            const Text('Selecciona al empleado, la causal y registra valores pendientes. El resultado es estimado.'),
-            const SizedBox(height: 18),
-            DropdownButtonFormField<String>(
-              initialValue: _employeeId,
-              decoration: const InputDecoration(labelText: 'Empleado', prefixIcon: Icon(Icons.person_outline)),
-              items: records.map((r) => DropdownMenuItem(value: r.employee.id, child: Text(r.employee.fullName))).toList(),
-              onChanged: (value) => setState(() => _employeeId = value),
+            Icon(icon, size: 58, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 19),
             ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<TerminationCause>(
-              initialValue: _cause,
-              decoration: const InputDecoration(labelText: 'Causal de terminación'),
-              items: TerminationCause.values.map((cause) => DropdownMenuItem(value: cause, child: Text(_causeName(cause)))).toList(),
-              onChanged: (value) => setState(() => _cause = value ?? TerminationCause.resignation),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              tileColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFFDDE1EA))),
-              leading: const Icon(Icons.event_outlined),
-              title: const Text('Fecha de terminación'),
-              subtitle: Text(compactDate(_date)),
-              trailing: const Icon(Icons.edit_calendar_outlined),
-              onTap: _pickDate,
-            ),
-            const SizedBox(height: 18),
-            const Text('Valores pendientes', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-            const SizedBox(height: 10),
-            _amountField(_pendingSalary, 'Remuneración pendiente'),
-            _amountField(_thirteenth, 'Décimo tercero pendiente'),
-            _amountField(_fourteenth, 'Décimo cuarto pendiente'),
-            _amountField(_vacations, 'Vacaciones pendientes'),
-            _amountField(_reserve, 'Fondos de reserva pendientes'),
-            _amountField(_otherIncome, 'Otros ingresos'),
-            _amountField(_deductions, 'Descuentos'),
-            if (breakdown != null) ...[
-              const SizedBox(height: 14),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Resultado estimado', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                      const SizedBox(height: 12),
-                      _resultRow('Beneficios pendientes', breakdown.benefitsTotal),
-                      if (breakdown.desahucio > 0) _resultRow('Bonificación por desahucio', breakdown.desahucio),
-                      if (breakdown.dismissalIndemnification > 0) _resultRow('Indemnización por despido', breakdown.dismissalIndemnification),
-                      _resultRow('Otros ingresos + sueldo pendiente', breakdown.pendingSalary + breakdown.otherIncome),
-                      _resultRow('Descuentos', -breakdown.deductions),
-                      const Divider(height: 26),
-                      _resultRow('Total estimado', breakdown.total, strong: true),
-                    ],
-                  ),
-                ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              maxLines: 5,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                height: 1.4,
               ),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: _saving ? null : () => _save(records, breakdown),
-                icon: const Icon(Icons.save_outlined),
-                label: Text(_saving ? 'Guardando...' : 'Guardar cálculo'),
-              ),
-              const SizedBox(height: 12),
-              const Text('Antes de pagar o registrar el acta en SUT, revisa la causal y todos los rubros que correspondan al caso concreto.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
-            ],
+            ),
           ],
-        );
-      },
-    );
-  }
-
-  Widget _amountField(TextEditingController controller, String label) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(labelText: label, prefixText: '\$ '),
         ),
-      );
-
-  Widget _resultRow(String label, double value, {bool strong = false}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(children: [Expanded(child: Text(label)), Text(money(value), style: TextStyle(fontWeight: strong ? FontWeight.w900 : FontWeight.w700, fontSize: strong ? 18 : 14))]),
-      );
-
-  String _causeName(TerminationCause cause) => switch (cause) {
-        TerminationCause.resignation => 'Renuncia',
-        TerminationCause.desahucio => 'Desahucio',
-        TerminationCause.mutualAgreement => 'Mutuo acuerdo',
-        TerminationCause.unfairDismissal => 'Despido intempestivo',
-        TerminationCause.contractEnd => 'Fin de contrato',
-      };
+      ),
+    );
+  }
 }
 
-extension _FirstOrNull<T> on Iterable<T> {
-  T? get firstOrNull {
-    final iterator = this.iterator;
-    return iterator.moveNext() ? iterator.current : null;
-  }
+String _initials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+  return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
 }
