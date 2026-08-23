@@ -7,18 +7,22 @@ Aplicación Flutter para pequeños empleadores de Ecuador. Centraliza empleados,
 El MVP incluye:
 
 - Registro e inicio de sesión con Supabase Auth.
+- Acceso a calculadoras sin necesidad de crear una cuenta.
 - Múltiples empresas por usuario y aislamiento con RLS.
+- Registro de región laboral de la empresa para cálculos del décimo cuarto.
 - Registro de empleados y contrato inicial.
 - Historial salarial en Supabase.
 - Dashboard por empresa.
 - Vista previa de nómina mensual.
-- Calculadoras de IESS, décimos, vacaciones, horas suplementarias/extraordinarias y costo de contratación.
-- Calculadora de finiquito por causal con despido intempestivo y desahucio.
+- Calculadoras independientes de IESS, décimo tercero, décimo cuarto, vacaciones, horas suplementarias/extraordinarias y costo de contratación.
+- Calculadora pública de finiquito a partir de fechas, remuneración, causal y región.
+- Finiquito simplificado para empleados registrados: reutiliza sueldo, fecha de ingreso y modalidad de décimos del contrato.
+- Cálculo automático de sueldo pendiente, proporcionales de décimos, estimación de vacaciones, desahucio e indemnización por despido cuando corresponde.
 - Guardado de borradores de finiquito con snapshot del cálculo.
 - Esquema versionado para nómina, horas extra, vacaciones, finiquitos y recordatorios.
 - Pruebas unitarias del motor laboral.
 
-> Los cálculos son orientativos. Casos con contratos colectivos, regímenes especiales o particularidades jurídicas deben revisarse antes de realizar pagos o trámites oficiales.
+> Los cálculos son orientativos. Las vacaciones efectivamente pendientes, remuneraciones variables, contratos colectivos, regímenes especiales y particularidades jurídicas requieren datos o revisión adicional antes de realizar pagos o trámites oficiales.
 
 ## Requisitos
 
@@ -64,9 +68,12 @@ Y la migración del MVP agrega/normaliza:
 - `settlement_items`
 - `reminders`
 
+La región de `companies` usa `costa_insular` o `sierra_amazonia`.
+
 ## Pruebas
 
 ```powershell
+flutter analyze
 flutter test
 ```
 
