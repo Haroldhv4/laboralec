@@ -20,8 +20,7 @@ class SettlementCalculatorPage extends StatefulWidget {
       _SettlementCalculatorPageState();
 }
 
-class _SettlementCalculatorPageState
-    extends State<SettlementCalculatorPage> {
+class _SettlementCalculatorPageState extends State<SettlementCalculatorPage> {
   final _engine = const CalculationEngine();
   late final TextEditingController _salary;
   final _deductions = TextEditingController(text: '0');
@@ -40,6 +39,9 @@ class _SettlementCalculatorPageState
 
   EmploymentContract? get _contract => widget.record?.contract;
   bool get _employeeMode => widget.record != null && _contract != null;
+  bool get _hasStoredRegion =>
+      widget.companyRegion == 'costa_insular' ||
+      widget.companyRegion == 'sierra_amazonia';
 
   @override
   void initState() {
@@ -54,10 +56,8 @@ class _SettlementCalculatorPageState
           DateTime.now().month,
           DateTime.now().day,
         );
-    _thirteenthMonthlyized =
-        contract?.thirteenthPaymentMode == 'monthly';
-    _fourteenthMonthlyized =
-        contract?.fourteenthPaymentMode == 'monthly';
+    _thirteenthMonthlyized = contract?.thirteenthPaymentMode == 'monthly';
+    _fourteenthMonthlyized = contract?.fourteenthPaymentMode == 'monthly';
     _includeCurrentReserveFund =
         contract?.reserveFundPaymentMode == 'monthly';
     _region = widget.companyRegion == 'sierra_amazonia'
@@ -136,9 +136,7 @@ class _SettlementCalculatorPageState
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Finiquito guardado como borrador.'),
-          ),
+          const SnackBar(content: Text('Finiquito guardado como borrador.')),
         );
       }
     } catch (error) {
@@ -155,37 +153,41 @@ class _SettlementCalculatorPageState
   @override
   Widget build(BuildContext context) {
     final estimate = _estimate;
-    final theme = Theme.of(context);
     final record = widget.record;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          record == null ? 'Calculadora de finiquito' : 'Finiquito',
-        ),
+        title: Text(record == null ? 'Calculadora de finiquito' : 'Finiquito'),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
         children: [
-          _HeaderCard(
+          _Hero(
             employeeName: record?.employee.fullName,
-            subtitle: record == null
-                ? 'Calcula una liquidación laboral aproximada con los datos esenciales.'
-                : 'Los datos del contrato ya están cargados. Solo indica cómo y cuándo terminó la relación.',
+            subtitle: _employeeMode
+                ? 'Ya conocemos el contrato. Indica la terminación y calculamos el resto.'
+                : 'Ingresa los datos esenciales y obtén el desglose automáticamente.',
           ),
-          const SizedBox(height: 20),
-          Text(
-            'Datos esenciales',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w900,
+          const SizedBox(height: 24),
+          if (_employeeMode) ...[
+            _StoredContractCard(
+              record: record!,
+              contract: _contract!,
+              region: _region,
+              showRegion: _hasStoredRegion,
             ),
-          ),
-          const SizedBox(height: 12),
-          if (!_employeeMode) ...[
+            const SizedBox(height: 18),
+          ] else ...[
+            Text(
+              'Datos del trabajador',
+              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: _salary,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
                 labelText: 'Última remuneración mensual',
@@ -194,17 +196,19 @@ class _SettlementCalculatorPageState
               ),
             ),
             const SizedBox(height: 12),
-            _DateTile(
+            _DateField(
               title: 'Fecha de ingreso',
               date: _startDate,
               icon: Icons.login_rounded,
               onTap: _pickStartDate,
             ),
-            const SizedBox(height: 12),
-          ] else ...[
-            _ContractSummary(record: record!, contract: _contract!),
-            const SizedBox(height: 12),
+            const SizedBox(height: 18),
           ],
+          Text(
+            'Terminación',
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 12),
           DropdownButtonFormField<TerminationCause>(
             initialValue: _cause,
             decoration: const InputDecoration(
@@ -224,38 +228,39 @@ class _SettlementCalculatorPageState
             },
           ),
           const SizedBox(height: 12),
-          _DateTile(
+          _DateField(
             title: 'Fecha de terminación',
             date: _endDate,
             icon: Icons.event_available_outlined,
             onTap: _pickEndDate,
           ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<EcuadorRegion>(
-            initialValue: _region,
-            decoration: const InputDecoration(
-              labelText: 'Región laboral',
-              prefixIcon: Icon(Icons.location_on_outlined),
+          if (!_employeeMode || !_hasStoredRegion) ...[
+            const SizedBox(height: 12),
+            DropdownButtonFormField<EcuadorRegion>(
+              initialValue: _region,
+              decoration: const InputDecoration(
+                labelText: 'Región laboral',
+                prefixIcon: Icon(Icons.location_on_outlined),
+              ),
+              items: const [
+                DropdownMenuItem(
+                  value: EcuadorRegion.costaInsular,
+                  child: Text('Costa / Insular'),
+                ),
+                DropdownMenuItem(
+                  value: EcuadorRegion.sierraAmazonia,
+                  child: Text('Sierra / Amazonía'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) setState(() => _region = value);
+              },
             ),
-            items: const [
-              DropdownMenuItem(
-                value: EcuadorRegion.costaInsular,
-                child: Text('Costa / Insular'),
-              ),
-              DropdownMenuItem(
-                value: EcuadorRegion.sierraAmazonia,
-                child: Text('Sierra / Amazonía'),
-              ),
-            ],
-            onChanged: (value) {
-              if (value != null) setState(() => _region = value);
-            },
-          ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _deductions,
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(
               labelText: 'Descuentos pendientes (opcional)',
@@ -263,20 +268,17 @@ class _SettlementCalculatorPageState
               prefixIcon: Icon(Icons.remove_circle_outline),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Card(
             child: ExpansionTile(
-              tilePadding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-              childrenPadding:
-                  const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+              childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              leading: Icon(Icons.tune_rounded, color: scheme.secondary),
               title: const Text(
                 'Ajustes opcionales',
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
-              subtitle: const Text(
-                'Solo cambia algo si el caso lo necesita',
-              ),
+              subtitle: const Text('Normalmente no necesitas tocar nada aquí'),
               children: [
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
@@ -294,20 +296,15 @@ class _SettlementCalculatorPageState
                 ),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('El sueldo del mes de salida ya fue pagado'),
-                  subtitle: const Text(
-                    'Si está activo, no se suma remuneración pendiente.',
-                  ),
+                  title: const Text('Sueldo del mes de salida ya pagado'),
+                  subtitle: const Text('Evita sumar remuneración pendiente.'),
                   value: _salaryCurrentMonthPaid,
                   onChanged: (value) =>
                       setState(() => _salaryCurrentMonthPaid = value),
                 ),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Incluir fondo de reserva del mes'),
-                  subtitle: const Text(
-                    'Úsalo cuando corresponde pago mensual y aún está pendiente.',
-                  ),
+                  title: const Text('Incluir fondo de reserva pendiente del mes'),
                   value: _includeCurrentReserveFund,
                   onChanged: (value) =>
                       setState(() => _includeCurrentReserveFund = value),
@@ -315,11 +312,10 @@ class _SettlementCalculatorPageState
                 const SizedBox(height: 8),
                 TextField(
                   controller: _vacationDays,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
-                    labelText: 'Días de vacaciones pendientes',
+                    labelText: 'Vacaciones pendientes reales',
                     hintText: 'Vacío = estimación automática',
                     prefixIcon: Icon(Icons.beach_access_outlined),
                   ),
@@ -327,8 +323,7 @@ class _SettlementCalculatorPageState
                 const SizedBox(height: 12),
                 TextField(
                   controller: _otherIncome,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     labelText: 'Otros ingresos pendientes',
@@ -343,23 +338,21 @@ class _SettlementCalculatorPageState
           if (estimate == null)
             const _EmptyResult()
           else
-            _SettlementResultCard(estimate: estimate),
+            _Result(estimate: estimate),
           if (estimate != null && record != null) ...[
             const SizedBox(height: 14),
             FilledButton.icon(
               onPressed: _saving ? null : () => _save(estimate),
               icon: const Icon(Icons.save_outlined),
-              label: Text(
-                _saving ? 'Guardando...' : 'Guardar finiquito',
-              ),
+              label: Text(_saving ? 'Guardando...' : 'Guardar borrador'),
             ),
           ],
           const SizedBox(height: 18),
           Text(
-            'La calculadora oficial del Ministerio solicita causal, región, fechas de inicio y fin, última remuneración, modalidad de décimos y vacaciones pendientes. Laboral EC automatiza esos rubros cuando dispone de la información.',
+            'Las fechas permiten calcular automáticamente proporcionales de sueldo y décimos. Las vacaciones realmente pendientes no pueden conocerse solo con fechas si el trabajador ya tomó días; por eso la app las estima y permite corregirlas en Ajustes.',
             style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.4,
+              color: scheme.onSurfaceVariant,
+              height: 1.45,
             ),
           ),
         ],
@@ -376,11 +369,8 @@ class _SettlementCalculatorPageState
       };
 }
 
-class _HeaderCard extends StatelessWidget {
-  const _HeaderCard({
-    required this.employeeName,
-    required this.subtitle,
-  });
+class _Hero extends StatelessWidget {
+  const _Hero({required this.employeeName, required this.subtitle});
 
   final String? employeeName;
   final String subtitle;
@@ -389,31 +379,24 @@ class _HeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(23),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            scheme.primary,
-            scheme.primary.withValues(alpha: 0.82),
-          ],
+          colors: [scheme.primary, scheme.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(28),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.assignment_turned_in_outlined,
-            color: scheme.onPrimary,
-            size: 32,
-          ),
-          const SizedBox(height: 18),
+          const Icon(Icons.assignment_turned_in_outlined, color: Colors.white, size: 34),
+          const SizedBox(height: 20),
           Text(
             employeeName ?? 'Finiquito laboral',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: scheme.onPrimary,
+                  color: Colors.white,
                   fontWeight: FontWeight.w900,
                 ),
           ),
@@ -421,8 +404,8 @@ class _HeaderCard extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
-              color: scheme.onPrimary.withValues(alpha: 0.84),
-              height: 1.35,
+              color: Colors.white.withValues(alpha: 0.84),
+              height: 1.4,
             ),
           ),
         ],
@@ -431,50 +414,100 @@ class _HeaderCard extends StatelessWidget {
   }
 }
 
-class _ContractSummary extends StatelessWidget {
-  const _ContractSummary({
+class _StoredContractCard extends StatelessWidget {
+  const _StoredContractCard({
     required this.record,
     required this.contract,
+    required this.region,
+    required this.showRegion,
   });
 
   final EmployeeRecord record;
   final EmploymentContract contract;
+  final EcuadorRegion region;
+  final bool showRegion;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           children: [
-            _row('Empleado', record.employee.fullName),
-            _row('Ingreso', compactDate(contract.startDate)),
-            _row('Sueldo', money(contract.monthlySalary)),
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: scheme.primaryContainer,
+                  foregroundColor: scheme.primary,
+                  child: const Icon(Icons.person_outline),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        record.employee.fullName,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                      Text(
+                        contract.position ?? 'Empleado',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 26),
+            _InfoRow(label: 'Ingreso', value: compactDate(contract.startDate)),
+            _InfoRow(label: 'Sueldo', value: money(contract.monthlySalary)),
+            if (showRegion)
+              _InfoRow(
+                label: 'Región',
+                value: region == EcuadorRegion.sierraAmazonia
+                    ? 'Sierra / Amazonía'
+                    : 'Costa / Insular',
+              ),
           ],
         ),
       ),
     );
   }
-
-  Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(
-          children: [
-            Expanded(child: Text(label)),
-            Flexible(
-              child: Text(
-                value,
-                textAlign: TextAlign.end,
-                style: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
-        ),
-      );
 }
 
-class _DateTile extends StatelessWidget {
-  const _DateTile({
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(child: Text(label)),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DateField extends StatelessWidget {
+  const _DateField({
     required this.title,
     required this.date,
     required this.icon,
@@ -488,8 +521,9 @@ class _DateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: scheme.surface,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
@@ -498,9 +532,7 @@ class _DateTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
+            border: Border.all(color: scheme.outlineVariant),
           ),
           child: Row(
             children: [
@@ -510,10 +542,7 @@ class _DateTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
+                    Text(title, style: Theme.of(context).textTheme.labelMedium),
                     const SizedBox(height: 2),
                     Text(
                       compactDate(date),
@@ -531,8 +560,8 @@ class _DateTile extends StatelessWidget {
   }
 }
 
-class _SettlementResultCard extends StatelessWidget {
-  const _SettlementResultCard({required this.estimate});
+class _Result extends StatelessWidget {
+  const _Result({required this.estimate});
 
   final SettlementEstimate estimate;
 
@@ -540,7 +569,6 @@ class _SettlementResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final result = estimate.breakdown;
     final scheme = Theme.of(context).colorScheme;
-
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -548,20 +576,17 @@ class _SettlementResultCard extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(22),
-            color: scheme.primaryContainer.withValues(alpha: 0.55),
+            color: scheme.primaryContainer.withValues(alpha: 0.62),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Total estimado',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 4),
+                const Text('Total estimado', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 3),
                 Text(
                   money(result.total),
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
                         color: scheme.primary,
+                        fontWeight: FontWeight.w900,
                       ),
                 ),
                 const SizedBox(height: 6),
@@ -577,46 +602,45 @@ class _SettlementResultCard extends StatelessWidget {
             child: Column(
               children: [
                 if (result.pendingSalary > 0)
-                  _row(
-                    'Sueldo pendiente (${estimate.pendingSalaryDays} días)',
-                    result.pendingSalary,
+                  _AmountRow(
+                    label: 'Sueldo pendiente',
+                    value: result.pendingSalary,
+                    detail: '${estimate.pendingSalaryDays} días',
                   ),
-                _row(
-                  'Décimo tercero',
-                  result.thirteenth,
-                  hint: '${estimate.thirteenthDays} días proporcionales',
+                _AmountRow(
+                  label: 'Décimo tercero',
+                  value: result.thirteenth,
+                  detail: '${estimate.thirteenthDays} días proporcionales',
                 ),
-                _row(
-                  'Décimo cuarto',
-                  result.fourteenth,
-                  hint:
-                      '${estimate.fourteenthDays} días · SBU ${money(estimate.sbuUsed)}',
+                _AmountRow(
+                  label: 'Décimo cuarto',
+                  value: result.fourteenth,
+                  detail: '${estimate.fourteenthDays} días · SBU ${money(estimate.sbuUsed)}',
                 ),
-                _row(
-                  'Vacaciones',
-                  result.vacations,
-                  hint:
-                      '${estimate.vacationDays.toStringAsFixed(2)} días estimados',
+                _AmountRow(
+                  label: 'Vacaciones',
+                  value: result.vacations,
+                  detail: '${estimate.vacationDays.toStringAsFixed(2)} días',
                 ),
                 if (result.reserveFund > 0)
-                  _row('Fondo de reserva pendiente', result.reserveFund),
+                  _AmountRow(label: 'Fondo de reserva', value: result.reserveFund),
                 if (result.desahucio > 0)
-                  _row('Bonificación por desahucio', result.desahucio),
+                  _AmountRow(label: 'Bonificación por desahucio', value: result.desahucio),
                 if (result.dismissalIndemnification > 0)
-                  _row(
-                    'Indemnización por despido',
-                    result.dismissalIndemnification,
+                  _AmountRow(
+                    label: 'Indemnización por despido',
+                    value: result.dismissalIndemnification,
                   ),
                 if (result.otherIncome > 0)
-                  _row('Otros ingresos', result.otherIncome),
+                  _AmountRow(label: 'Otros ingresos', value: result.otherIncome),
                 if (result.deductions > 0)
-                  _row('Descuentos', -result.deductions),
+                  _AmountRow(label: 'Descuentos', value: -result.deductions),
                 const Divider(height: 28),
                 ExpansionTile(
                   tilePadding: EdgeInsets.zero,
                   childrenPadding: EdgeInsets.zero,
                   title: const Text(
-                    'Supuestos del cálculo',
+                    'Cómo se estimó',
                     style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                   children: estimate.notes
@@ -626,11 +650,7 @@ class _SettlementResultCard extends StatelessWidget {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.info_outline,
-                                size: 17,
-                                color: scheme.primary,
-                              ),
+                              Icon(Icons.info_outline, size: 17, color: scheme.secondary),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -651,12 +671,17 @@ class _SettlementResultCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _row(
-    String label,
-    double amount, {
-    String? hint,
-  }) {
+class _AmountRow extends StatelessWidget {
+  const _AmountRow({required this.label, required this.value, this.detail});
+
+  final String label;
+  final double value;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
@@ -667,19 +692,19 @@ class _SettlementResultCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label),
-                if (hint != null)
+                if (detail != null)
                   Text(
-                    hint,
-                    style: const TextStyle(fontSize: 11),
+                    detail!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            money(amount),
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
+          Text(money(value), style: const TextStyle(fontWeight: FontWeight.w900)),
         ],
       ),
     );
