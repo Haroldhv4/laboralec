@@ -266,4 +266,4 @@ String _monthName(int month) => const [
       'octubre',
       'noviembre',
       'diciembre',
-    ][month.clamp(1, 12) - 1];
+    ][month.clamp(1, 12).toInt() - 1];
